@@ -70,7 +70,12 @@ map.on('load', () => {
       const props = e.features[0].properties;
       new mapboxgl.Popup()
         .setLngLat(e.lngLat)
-        .setHTML(`<strong>${props.species}</strong><br>${props.method}<br>${props.age}<br>${props.sample_time}`)
+        .setHTML(
+          `<strong>${props.species}</strong><br>` +
+          `${props.method}<br>` +
+          `${props.AGE}<br>` +
+          `${props['sample time']}`
+        )
         .addTo(map);
     });
 
