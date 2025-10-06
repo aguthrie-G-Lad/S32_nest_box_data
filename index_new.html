@@ -9,8 +9,8 @@
   <style>
     body { margin:0; padding:0; }
     #map { position:absolute; top:0; bottom:0; width:100%; }
-    #menu { position:absolute; background:#fff; padding:10px; margin:10px; z-index:1; font-family:sans-serif; max-height: 90%; overflow-y: auto;}
-    #menu h4 { margin: 5px 0; }
+    #menu { position:absolute; background:#fff; padding:10px; margin:10px; z-index:1; font-family:sans-serif; max-height:90%; overflow-y:auto; }
+    #menu h4 { margin:5px 0; }
   </style>
 </head>
 <body>
@@ -40,7 +40,48 @@ map.on('load', () => {
   const methodList = ['eDNA','Visual'];
   const timeList = ['Nov-23','Apr-24','Dec-24','May-25'];
 
-  // Helper function to create checkboxes
+  // Load GeoJSON from the same repo
+  map.addSource('detections', {
+    type: 'geojson',
+    data: 'detections.geojson' // <-- must be in same folder as index.html
+  });
+
+  // Add a layer for each species
+  speciesList.forEach(species => {
+    map.addLayer({
+      id: species,
+      type: 'circle',
+      source: 'detections',
+      filter: ['==', ['get','species'], species],
+      paint: {
+        'circle-radius': 6,
+        'circle-color': species === 'RTP' ? '#e41a1c' :
+                        species === 'BTP' ? '#377eb8' :
+                        species === 'ANT' ? '#4daf4a' :
+                        '#F2B551',
+        'circle-stroke-width': 1,
+        'circle-stroke-color': '#000'
+      }
+    });
+
+    // Popups that display all properties
+    map.on('click', species, (e) => {
+      const props = e.features[0].properties;
+      let html = '';
+      for (const key in props) {
+        html += `<strong>${key}</strong>: ${props[key]}<br>`;
+      }
+      new mapboxgl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(html)
+        .addTo(map);
+    });
+
+    map.on('mouseenter', species, () => map.getCanvas().style.cursor = 'pointer');
+    map.on('mouseleave', species, () => map.getCanvas().style.cursor = '');
+  });
+
+  // Helper to create checkboxes
   function createCheckboxes(list, containerId, onchangeFn) {
     const container = document.getElementById(containerId);
     list.forEach(item => {
@@ -64,26 +105,7 @@ map.on('load', () => {
   createCheckboxes(methodList, 'method-checkboxes', updateFilters);
   createCheckboxes(timeList, 'time-checkboxes', updateFilters);
 
-  // Add popups for each species layer
-  speciesList.forEach(species => {
-    map.on('click', species, (e) => {
-      const props = e.features[0].properties;
-      new mapboxgl.Popup()
-        .setLngLat(e.lngLat)
-        .setHTML(
-          `<strong>${props.species}</strong><br>` +
-          `${props.method}<br>` +
-          `${props.AGE}<br>` +
-          `${props['sample time']}`
-        )
-        .addTo(map);
-    });
-
-    map.on('mouseenter', species, () => map.getCanvas().style.cursor = 'pointer');
-    map.on('mouseleave', species, () => map.getCanvas().style.cursor = '');
-  });
-
-  // Function to update all three filters
+  // Filter function for species, method, and survey time
   function updateFilters() {
     const activeSpecies = speciesList.filter(s => document.getElementById(s).checked);
     const activeMethods = methodList.filter(m => document.getElementById(m).checked);
@@ -95,6 +117,7 @@ map.on('load', () => {
 
       if (visibility === 'visible') {
         map.setFilter(species, ['all',
+          ['==', ['get','species'], species],
           ['in', ['get','method'], ['literal', activeMethods]],
           ['in', ['get','sample time'], ['literal', activeTimes]]
         ]);
